@@ -10,9 +10,6 @@ from watchdog.events import FileSystemEventHandler
 from telegram import Bot
 from telegram.constants import ParseMode
 from dotenv import load_dotenv
-from rich.console import Console
-from rich.table import Table
-from rich.live import Live
 
 locale.setlocale(locale.LC_TIME, 'pt_BR.utf8')
 load_dotenv()
@@ -25,19 +22,6 @@ WATCH_PATH = os.getenv("PATH")
 
 bot = Bot(token=TOKEN)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
-console = Console()
-file_status = {}
-
-def render_table():
-    table = Table(title="Monitoramento de Arquivos", expand=True)
-    table.add_column("Arquivo", style="cyan", no_wrap=True)
-    table.add_column("Status", style="green")
-    table.add_column("Mensagem", style="white")
-
-    for file, status in file_status.items():
-        table.add_row(file, status["status"], status["message"])
-    return table
 
 async def send_to_telegram(file_path, topic_id):
     try:
@@ -61,7 +45,6 @@ async def send_to_telegram(file_path, topic_id):
 
     except Exception as e:
         logging.error(f"Erro ao enviar arquivo: {e}")
-        file_status[file_path] = {"status": "Erro", "message": f"Erro ao enviar: {e}"}
 
 async def monitor_transfer(file_path):
     try:
@@ -72,6 +55,10 @@ async def monitor_transfer(file_path):
                 return True
     except FileNotFoundError:
         return False
+
+import subprocess
+import logging
+import os
 
 def convert_video(input_path):
     try:
@@ -110,46 +97,32 @@ class WatcherHandler(FileSystemEventHandler):
             file_path = event.src_path
             logging.info(f"Novo arquivo detectado: {file_path}")
 
-            file_status[file_path] = {"status": "Detectado", "message": "Aguardando processamento"}
             asyncio.run_coroutine_threadsafe(self.process_file(file_path), self.loop)
 
     async def process_file(self, file_path):
-        try:
-            if await monitor_transfer(file_path):
-                if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
-                    file_status[file_path]["status"] = "Enviando"
-                    await send_to_telegram(file_path, TOPIC_IMAGES)
-                    file_status[file_path] = {"status": "Sucesso", "message": "Enviado para Telegram"}
-                elif file_path.lower().endswith(".h264"):
-                    file_status[file_path]["status"] = "Convertendo"
-                    converted_path = convert_video(file_path)
-                    if converted_path:
-                        file_status[file_path]["status"] = "Enviando"
-                        await send_to_telegram(converted_path, TOPIC_VIDEOS)
-                        file_status[file_path] = {"status": "Sucesso", "message": "Enviado após conversão"}
-                    else:
-                        file_status[file_path] = {"status": "Erro", "message": "Falha na conversão"}
-            else:
-                file_status[file_path] = {"status": "Erro", "message": "Transferência incompleta"}
-        except Exception as e:
-            file_status[file_path] = {"status": "Erro", "message": f"Erro inesperado: {e}"}
+        if await monitor_transfer(file_path):
+            if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
+                await send_to_telegram(file_path, TOPIC_IMAGES)
+            elif file_path.lower().endswith(".h264"):
+                converted_path = convert_video(file_path)
+                if converted_path:
+                    await send_to_telegram(converted_path, TOPIC_VIDEOS)
 
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-
+    
     event_handler = WatcherHandler(loop)
     observer = Observer()
     observer.schedule(event_handler, path=WATCH_PATH, recursive=True)
 
-    with Live(render_table, refresh_per_second=1, console=console) as live:
-        logging.info("Iniciando monitoramento de pasta...")
-        try:
-            observer.start()
-            loop.run_forever()
-        except KeyboardInterrupt:
-            observer.stop()
-            logging.info("Monitoramento encerrado.")
-        finally:
-            observer.join()
-            loop.close()
+    logging.info("Iniciando monitoramento de pasta...")
+    try:
+        observer.start()
+        loop.run_forever()
+    except KeyboardInterrupt:
+        observer.stop()
+        logging.info("Monitoramento encerrado.")
+    finally:
+        observer.join()
+        loop.close()
