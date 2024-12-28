@@ -17,7 +17,7 @@ TOKEN = os.getenv("TOKEN")
 GROUP_ID = int(os.getenv("GROUP_ID"))
 TOPIC_IMAGES = int(os.getenv("TOPIC_IMAGES"))
 TOPIC_VIDEOS = int(os.getenv("TOPIC_VIDEOS"))
-WATCH_PATH = os.getenv("PATH")
+WATCH_PATH = os.getenv("PATH") 
 
 bot = Bot(token=TOKEN)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -25,10 +25,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 async def send_to_telegram(file_path, topic_id):
     try:
         creation_time = os.path.getctime(file_path)
-
         day_of_week = time.strftime("%A", time.localtime(creation_time))
         date = time.strftime("%d/%m/%Y", time.localtime(creation_time))
-        hour_min_sec = time.strftime("As: %H:%M e %S segundos", time.localtime(creation_time))
+        hour_min_sec = time.strftime("Às: %H:%M e %S segundos", time.localtime(creation_time))
 
         caption = f"""<blockquote>{day_of_week.capitalize()}</blockquote>
 <blockquote>{date}</blockquote>
