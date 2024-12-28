@@ -69,13 +69,15 @@ class WatcherHandler(FileSystemEventHandler):
     def __init__(self, loop):
         super().__init__()
         self.loop = loop
+        self.tasks = []
 
     def on_created(self, event):
         if not event.is_directory:
             file_path = event.src_path
             logging.info(f"Novo arquivo detectado: {file_path}")
 
-            asyncio.run_coroutine_threadsafe(self.process_file(file_path), self.loop)
+            task = asyncio.run_coroutine_threadsafe(self.process_file(file_path), self.loop)
+            self.tasks.append(task)
 
     async def process_file(self, file_path):
         if await monitor_transfer(file_path):
@@ -89,7 +91,7 @@ class WatcherHandler(FileSystemEventHandler):
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    
+
     event_handler = WatcherHandler(loop)
     observer = Observer()
     observer.schedule(event_handler, path=WATCH_PATH, recursive=True)
@@ -103,4 +105,5 @@ if __name__ == "__main__":
         logging.info("Monitoramento encerrado.")
     finally:
         observer.join()
+        asyncio.gather(*event_handler.tasks)
         loop.close()
