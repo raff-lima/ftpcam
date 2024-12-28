@@ -64,7 +64,6 @@ def convert_video(input_path):
         output_path = f"{os.path.splitext(input_path)[0]}.mp4"
         logging.info(f"Convertendo vídeo: {input_path}")
 
-        # Executa o subprocesso e captura a saída e erros
         result = subprocess.run(
             ["/usr/bin/mkvmerge", "-o", output_path, input_path],
             check=True,
@@ -72,7 +71,6 @@ def convert_video(input_path):
             stderr=subprocess.PIPE
         )
 
-        # Exibe o stdout e stderr caso precise de mais detalhes
         logging.info(f"Saída do comando: {result.stdout.decode()}")
         if result.stderr:
             logging.error(f"Erro ao converter vídeo: {result.stderr.decode()}")
@@ -81,12 +79,10 @@ def convert_video(input_path):
         return output_path
 
     except subprocess.CalledProcessError as e:
-        # Captura erros do subprocesso
         logging.error(f"Erro ao converter vídeo: {e.stderr.decode()}")
         return None
 
     except Exception as e:
-        # Captura qualquer outro erro inesperado
         logging.error(f"Erro inesperado ao converter vídeo: {e}")
         return None
 
