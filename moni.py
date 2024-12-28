@@ -6,13 +6,10 @@ import logging
 import asyncio
 import subprocess
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import FileSystemEventHandler 
 from telegram import Bot
 from telegram.constants import ParseMode
 from dotenv import load_dotenv
-from rich.console import Console
-from rich.table import Table
-from rich.live import Live
 
 locale.setlocale(locale.LC_TIME, 'pt_BR.utf8')
 load_dotenv()
@@ -26,23 +23,8 @@ WATCH_PATH = os.getenv("PATH")
 bot = Bot(token=TOKEN)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-console = Console()
-status_table = Table(title="Status do Processamento")
-status_table.add_column("Arquivo", style="cyan")
-status_table.add_column("Status", style="green")
-status_data = {}
-
-async def update_table(file_path, status):
-    status_data[file_path] = status
-    with Live(status_table, refresh_per_second=2, console=console) as live:
-        status_table.rows = []
-        for file, stat in status_data.items():
-            status_table.add_row(file, stat)
-        live.update(status_table)
-
 async def send_to_telegram(file_path, topic_id):
     try:
-        await update_table(file_path, "Enviando para o Telegram...")
         creation_time = os.path.getctime(file_path)
         day_of_week = time.strftime("%A", time.localtime(creation_time))
         date = time.strftime("%d/%m/%Y", time.localtime(creation_time))
@@ -60,11 +42,9 @@ async def send_to_telegram(file_path, topic_id):
                 await bot.send_video(chat_id=GROUP_ID, video=vid, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
 
         logging.info(f"Arquivo enviado com sucesso: {file_path}")
-        await update_table(file_path, "Enviado com sucesso")
 
     except Exception as e:
         logging.error(f"Erro ao enviar arquivo: {e}")
-        await update_table(file_path, "Erro ao enviar")
 
 async def monitor_transfer(file_path):
     try:
@@ -76,11 +56,15 @@ async def monitor_transfer(file_path):
     except FileNotFoundError:
         return False
 
+import subprocess
+import logging
+import os
+
 def convert_video(input_path):
     try:
         output_path = f"{os.path.splitext(input_path)[0]}.mp4"
         logging.info(f"Convertendo vídeo: {input_path}")
-        
+
         result = subprocess.run(
             ["/usr/bin/mkvmerge", "-o", output_path, input_path],
             check=True,
@@ -116,7 +100,6 @@ class WatcherHandler(FileSystemEventHandler):
             asyncio.run_coroutine_threadsafe(self.process_file(file_path), self.loop)
 
     async def process_file(self, file_path):
-        await update_table(file_path, "Verificando transferência...")
         if await monitor_transfer(file_path):
             if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
                 await send_to_telegram(file_path, TOPIC_IMAGES)
