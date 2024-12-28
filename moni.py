@@ -55,40 +55,38 @@ async def monitor_transfer(file_path):
     except FileNotFoundError:
         return False
 
-import asyncio
+import subprocess
 import logging
 import os
 
-async def convert_video(input_path):
+def convert_video(input_path):
     try:
         output_path = f"{os.path.splitext(input_path)[0]}.mp4"
         logging.info(f"Convertendo vídeo: {input_path}")
 
-        # Executa o subprocesso de forma assíncrona
-        process = await asyncio.create_subprocess_exec(
-            "mkvmerge", "-o", output_path, input_path,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
+        # Executa o subprocesso e captura a saída e erros
+        result = subprocess.run(
+            ["mkvmerge", "-o", output_path, input_path],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
         )
 
-        # Aguarda o processo terminar e captura a saída e erro
-        stdout, stderr = await process.communicate()
+        # Exibe o stdout e stderr caso precise de mais detalhes
+        logging.info(f"Saída do comando: {result.stdout.decode()}")
+        if result.stderr:
+            logging.error(f"Erro ao converter vídeo: {result.stderr.decode()}")
 
-        # Exibe o stdout e stderr
-        if stdout:
-            logging.info(f"Saída do comando: {stdout.decode()}")
-        if stderr:
-            logging.error(f"Erro ao converter vídeo: {stderr.decode()}")
+        logging.info(f"Vídeo convertido: {output_path}")
+        return output_path
 
-        # Verifica o código de retorno do processo
-        if process.returncode == 0:
-            logging.info(f"Vídeo convertido com sucesso: {output_path}")
-            return output_path
-        else:
-            logging.error(f"Erro ao converter vídeo, código de erro: {process.returncode}")
-            return None
+    except subprocess.CalledProcessError as e:
+        # Captura erros do subprocesso
+        logging.error(f"Erro ao converter vídeo: {e.stderr.decode()}")
+        return None
 
     except Exception as e:
+        # Captura qualquer outro erro inesperado
         logging.error(f"Erro inesperado ao converter vídeo: {e}")
         return None
 
