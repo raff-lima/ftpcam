@@ -66,7 +66,7 @@ def convert_video(input_path):
 
         # Executa o subprocesso e captura a saída e erros
         result = subprocess.run(
-            ["mkvmerge", "-o", output_path, input_path],
+            ["/usr/bin/mkvmerge", "-o", output_path, input_path],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
