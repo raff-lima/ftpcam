@@ -27,7 +27,7 @@ async def send_to_telegram(file_path, topic_id):
         creation_time = os.path.getctime(file_path)
         day_of_week = time.strftime("%A", time.localtime(creation_time))
         date = time.strftime("%d/%m/%Y", time.localtime(creation_time))
-        hour_min_sec = time.strftime("Às: %H:%M e %S seg", time.localtime(creation_time))
+        hour_min_sec = time.strftime("Às: %H:%M e %S segundos", time.localtime(creation_time))
 
         caption = f"""<blockquote>{day_of_week.capitalize()}</blockquote>
 <blockquote>{date}</blockquote>
