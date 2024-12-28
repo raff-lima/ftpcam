@@ -27,22 +27,22 @@ bot = Bot(token=TOKEN)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 console = Console()
-status_table = Table(title="Status do Processamento")
-status_table.add_column("Arquivo", style="cyan")
-status_table.add_column("Status", style="green")
 status_data = {}
 
-async def update_table(file_path, status):
-    status_data[file_path] = status
-    with Live(status_table, refresh_per_second=2, console=console) as live:
-        status_table.rows = []
-        for file, stat in status_data.items():
-            status_table.add_row(file, stat)
-        live.update(status_table)
+async def update_table(live, status_data):
+    table = Table(title="Status do Processamento")
+    table.add_column("Arquivo", style="cyan")
+    table.add_column("Status", style="green")
+    for file, status in status_data.items():
+        table.add_row(file, status)
+    live.update(table)
 
 async def send_to_telegram(file_path, topic_id):
     try:
-        await update_table(file_path, "Enviando para o Telegram...")
+        status_data[file_path] = "Enviando para o Telegram..."
+        async with Live(console=console, refresh_per_second=2) as live:
+            await update_table(live, status_data)
+
         creation_time = os.path.getctime(file_path)
         day_of_week = time.strftime("%A", time.localtime(creation_time))
         date = time.strftime("%d/%m/%Y", time.localtime(creation_time))
@@ -60,11 +60,15 @@ async def send_to_telegram(file_path, topic_id):
                 await bot.send_video(chat_id=GROUP_ID, video=vid, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
 
         logging.info(f"Arquivo enviado com sucesso: {file_path}")
-        await update_table(file_path, "Enviado com sucesso")
+        status_data[file_path] = "Enviado com sucesso"
+        async with Live(console=console, refresh_per_second=2) as live:
+            await update_table(live, status_data)
 
     except Exception as e:
         logging.error(f"Erro ao enviar arquivo: {e}")
-        await update_table(file_path, "Erro ao enviar")
+        status_data[file_path] = "Erro ao enviar"
+        async with Live(console=console, refresh_per_second=2) as live:
+            await update_table(live, status_data)
 
 async def monitor_transfer(file_path):
     try:
@@ -116,7 +120,10 @@ class WatcherHandler(FileSystemEventHandler):
             asyncio.run_coroutine_threadsafe(self.process_file(file_path), self.loop)
 
     async def process_file(self, file_path):
-        await update_table(file_path, "Verificando transferência...")
+        status_data[file_path] = "Verificando transferência..."
+        async with Live(console=console, refresh_per_second=2) as live:
+            await update_table(live, status_data)
+
         if await monitor_transfer(file_path):
             if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
                 await send_to_telegram(file_path, TOPIC_IMAGES)
