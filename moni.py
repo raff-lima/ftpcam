@@ -55,20 +55,41 @@ async def monitor_transfer(file_path):
     except FileNotFoundError:
         return False
 
-def convert_video(input_path):
+import asyncio
+import logging
+import os
+
+async def convert_video(input_path):
     try:
         output_path = f"{os.path.splitext(input_path)[0]}.mp4"
         logging.info(f"Convertendo vídeo: {input_path}")
-        subprocess.run(
-        ["mkvmerge", "-o", output_path, input_path],
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-        logging.info(f"Vídeo convertido: {output_path}")
-        return output_path
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Erro ao converter vídeo: {e}")
+
+        # Executa o subprocesso de forma assíncrona
+        process = await asyncio.create_subprocess_exec(
+            "mkvmerge", "-o", output_path, input_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        # Aguarda o processo terminar e captura a saída e erro
+        stdout, stderr = await process.communicate()
+
+        # Exibe o stdout e stderr
+        if stdout:
+            logging.info(f"Saída do comando: {stdout.decode()}")
+        if stderr:
+            logging.error(f"Erro ao converter vídeo: {stderr.decode()}")
+
+        # Verifica o código de retorno do processo
+        if process.returncode == 0:
+            logging.info(f"Vídeo convertido com sucesso: {output_path}")
+            return output_path
+        else:
+            logging.error(f"Erro ao converter vídeo, código de erro: {process.returncode}")
+            return None
+
+    except Exception as e:
+        logging.error(f"Erro inesperado ao converter vídeo: {e}")
         return None
 
 class WatcherHandler(FileSystemEventHandler):
