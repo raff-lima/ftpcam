@@ -1,3 +1,4 @@
+# type: ignore
 import os
 import time
 import locale
@@ -5,7 +6,7 @@ import logging
 import asyncio
 import subprocess
 from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import FileSystemEventHandler 
 from telegram import Bot
 from telegram.constants import ParseMode
 from dotenv import load_dotenv
