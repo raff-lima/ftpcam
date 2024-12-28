@@ -59,7 +59,12 @@ def convert_video(input_path):
     try:
         output_path = f"{os.path.splitext(input_path)[0]}.mp4"
         logging.info(f"Convertendo vídeo: {input_path}")
-        subprocess.run(["mkvmerge", "-o", output_path, input_path], check=True)
+        subprocess.run(
+        ["mkvmerge", "-o", output_path, input_path],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
         logging.info(f"Vídeo convertido: {output_path}")
         return output_path
     except subprocess.CalledProcessError as e:
