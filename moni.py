@@ -1,5 +1,6 @@
 # type: ignore
 import os
+import json
 import time
 import locale
 import logging
@@ -15,7 +16,8 @@ locale.setlocale(locale.LC_TIME, 'pt_BR.utf8')
 load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
-GROUP_ID = int(os.getenv("GROUP_ID"))
+group_id_str = os.getenv("GROUP_ID", "{}")
+GROUP_ID = json.loads(group_id_str)
 TOPIC_IMAGES = int(os.getenv("TOPIC_IMAGES"))
 TOPIC_VIDEOS = int(os.getenv("TOPIC_VIDEOS"))
 WATCH_PATH = os.getenv("PATH") 
@@ -23,7 +25,7 @@ WATCH_PATH = os.getenv("PATH")
 bot = Bot(token=TOKEN)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-async def send_to_telegram(file_path, topic_id):
+async def send_to_telegram(file_path, topic_id, chat_id):
     try:
         creation_time = os.path.getctime(file_path)
         day_of_week = time.strftime("%A", time.localtime(creation_time))
@@ -36,10 +38,10 @@ async def send_to_telegram(file_path, topic_id):
 
         if topic_id == TOPIC_IMAGES:
             with open(file_path, 'rb') as img:
-                await bot.send_photo(chat_id=GROUP_ID, photo=img, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
+                await bot.send_photo(chat_id, photo=img, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
         elif topic_id == TOPIC_VIDEOS:
             with open(file_path, 'rb') as vid:
-                await bot.send_video(chat_id=GROUP_ID, video=vid, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
+                await bot.send_video(chat_id, video=vid, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
 
         logging.info(f"Arquivo enviado com sucesso: {file_path}")
 
@@ -100,13 +102,26 @@ class WatcherHandler(FileSystemEventHandler):
             asyncio.run_coroutine_threadsafe(self.process_file(file_path), self.loop)
 
     async def process_file(self, file_path):
-        if await monitor_transfer(file_path):
-            if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
-                await send_to_telegram(file_path, TOPIC_IMAGES)
-            elif file_path.lower().endswith(".h264"):
-                converted_path = convert_video(file_path)
-                if converted_path:
-                    await send_to_telegram(converted_path, TOPIC_VIDEOS)
+    if await monitor_transfer(file_path):
+        # Extrai o nome da "pasta" após /files/
+        try:
+            relative_path = file_path.split("/files/", 1)[1]
+            category = relative_path.split("/")[0]  # pega 'casa' de 'casa/arquivo.jpg'
+        except IndexError:
+            logging.error("Não foi possível extrair local do caminho")
+            return
+
+        group_id = GROUP_ID.get(category)
+        if not group_id:
+            logging.warning(f"Local '{category}' não encontrada no GROUP_ID")
+            return
+
+        if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
+            await send_to_telegram(file_path, TOPIC_IMAGES, group_id)
+        elif file_path.lower().endswith(".h264"):
+            converted_path = convert_video(file_path)
+            if converted_path:
+                await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id)
 
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
