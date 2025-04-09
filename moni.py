@@ -30,11 +30,11 @@ async def send_to_telegram(file_path, topic_id, chat_id):
         creation_time = os.path.getctime(file_path)
         day_of_week = time.strftime("%A", time.localtime(creation_time))
         date = time.strftime("%d/%m/%Y", time.localtime(creation_time))
-        hour_min_sec = time.strftime("Às: %H:%M e %S segundos", time.localtime(creation_time))
+        hour_min_sec = time.strftime("%H:%M e %S seg", time.localtime(creation_time))
 
         caption = f"""<blockquote>{day_of_week.capitalize()}</blockquote>
-Data: <blockquote>{date}</blockquote>
-Horário: <blockquote>{hour_min_sec}</blockquote>"""
+<blockquote>Data: {date}</blockquote>
+<blockquote>Horário: {hour_min_sec}</blockquote>"""
 
         if topic_id == TOPIC_IMAGES:
             with open(file_path, 'rb') as img:
