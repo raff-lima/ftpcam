@@ -102,26 +102,26 @@ class WatcherHandler(FileSystemEventHandler):
             asyncio.run_coroutine_threadsafe(self.process_file(file_path), self.loop)
 
     async def process_file(self, file_path):
-    if await monitor_transfer(file_path):
-        # Extrai o nome da "pasta" após /files/
-        try:
-            relative_path = file_path.split("/files/", 1)[1]
-            category = relative_path.split("/")[0]  # pega 'casa' de 'casa/arquivo.jpg'
-        except IndexError:
-            logging.error("Não foi possível extrair local do caminho")
-            return
+        if await monitor_transfer(file_path):
+            # Extrai o nome da "pasta" após /files/
+            try:
+                relative_path = file_path.split("/files/", 1)[1]
+                category = relative_path.split("/")[0]  # pega 'casa' de 'casa/arquivo.jpg'
+            except IndexError:
+                logging.error("Não foi possível extrair local do caminho")
+                return
 
-        group_id = GROUP_ID.get(category)
-        if not group_id:
-            logging.warning(f"Local '{category}' não encontrada no GROUP_ID")
-            return
+            group_id = GROUP_ID.get(category)
+            if not group_id:
+                logging.warning(f"Local '{category}' não encontrada no GROUP_ID")
+                return
 
-        if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
-            await send_to_telegram(file_path, TOPIC_IMAGES, group_id)
-        elif file_path.lower().endswith(".h264"):
-            converted_path = convert_video(file_path)
-            if converted_path:
-                await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id)
+            if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
+                await send_to_telegram(file_path, TOPIC_IMAGES, group_id)
+            elif file_path.lower().endswith(".h264"):
+                converted_path = convert_video(file_path)
+                if converted_path:
+                    await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id)
 
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
