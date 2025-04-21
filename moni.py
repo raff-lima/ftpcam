@@ -1,6 +1,5 @@
 # type: ignore
 import os
-import json
 import time
 import locale
 import logging
@@ -17,79 +16,47 @@ load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
 group_id_str = os.getenv("GROUP_ID", "{}")
-GROUP_ID = json.loads(group_id_str)
+GROUP_ID = json.loads(group_id_str)..get("dores")
 TOPIC_IMAGES = int(os.getenv("TOPIC_IMAGES"))
 TOPIC_VIDEOS = int(os.getenv("TOPIC_VIDEOS"))
 WATCH_PATH = os.getenv("PATH") 
 
 bot = Bot(token=TOKEN)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("monitor.log"),  # Salva logs em arquivo
-        logging.StreamHandler()  # Exibe logs no terminal
-    ]
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-async def send_to_telegram(file_path, topic_id, chat_id):
+async def send_to_telegram(file_path, topic_id):
     try:
         creation_time = os.path.getctime(file_path)
         day_of_week = time.strftime("%A", time.localtime(creation_time))
         date = time.strftime("%d/%m/%Y", time.localtime(creation_time))
-        hour_min_sec = time.strftime("%H:%M e %S seg", time.localtime(creation_time))
+        hour_min_sec = time.strftime("Às: %H:%M e %S segundos", time.localtime(creation_time))
 
-        caption = f"""<blockquote>{day_of_week.capitalize()}</blockquote>
-<blockquote>Data: {date}</blockquote>
-<blockquote>Horário: {hour_min_sec}</blockquote>"""
+        caption = f"""📷 <blockquote>{day_of_week.capitalize()}</blockquote>
+📅 Data: <blockquote>{date}</blockquote>
+⏰ Horário: <blockquote>{hour_min_sec}</blockquote>"""
 
         if topic_id == TOPIC_IMAGES:
             with open(file_path, 'rb') as img:
-                await bot.send_photo(chat_id, photo=img, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
+                await bot.send_photo(chat_id=GROUP_ID, photo=img, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
         elif topic_id == TOPIC_VIDEOS:
             with open(file_path, 'rb') as vid:
-                await bot.send_video(chat_id, video=vid, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
+                await bot.send_video(chat_id=GROUP_ID, video=vid, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
 
         logging.info(f"Arquivo enviado com sucesso: {file_path}")
 
     except Exception as e:
         logging.error(f"Erro ao enviar arquivo: {e}")
 
-async def monitor_transfer(file_path, timeout=60):
-    """
-    Aguarda até que o arquivo pare de ser modificado e esteja disponível para leitura.
-    
-    :param file_path: Caminho do arquivo a monitorar
-    :param timeout: Tempo máximo de espera em segundos
-    :return: True se o arquivo estiver pronto, False se falhar ou expirar o tempo
-    """
+async def monitor_transfer(file_path):
     try:
-        elapsed = 0
-        while elapsed < timeout:
-            if not os.path.exists(file_path):
-                await asyncio.sleep(1)
-                elapsed += 1
-                continue
-
+        while True:
             initial_size = os.path.getsize(file_path)
             await asyncio.sleep(2)
             if initial_size == os.path.getsize(file_path):
-                try:
-                    with open(file_path, 'rb') as f:
-                        f.read(1)  # tenta ler um byte
-                    return True
-                except OSError:
-                    # Arquivo ainda pode estar sendo usado
-                    await asyncio.sleep(1)
-                    elapsed += 3
-                    continue
-            else:
-                elapsed += 2
-        return False  # Timeout
-    except Exception as e:
-        print(f"[ERRO monitor_transfer] {e}")
+                return True
+    except FileNotFoundError:
         return False
-    
+
 import subprocess
 import logging
 import os
@@ -135,25 +102,12 @@ class WatcherHandler(FileSystemEventHandler):
 
     async def process_file(self, file_path):
         if await monitor_transfer(file_path):
-            # Extrai o nome da "pasta" após /files/
-            try:
-                relative_path = file_path.split("/files/", 1)[1]
-                category = relative_path.split("/")[0]  # pega 'casa' de 'casa/arquivo.jpg'
-            except IndexError:
-                logging.error("Não foi possível extrair local do caminho")
-                return
-
-            group_id = GROUP_ID.get(category)
-            if not group_id:
-                logging.warning(f"Local '{category}' não encontrada no GROUP_ID")
-                return
-
             if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
-                await send_to_telegram(file_path, TOPIC_IMAGES, group_id)
+                await send_to_telegram(file_path, TOPIC_IMAGES)
             elif file_path.lower().endswith(".h264"):
                 converted_path = convert_video(file_path)
                 if converted_path:
-                    await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id)
+                    await send_to_telegram(converted_path, TOPIC_VIDEOS)
 
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
