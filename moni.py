@@ -55,20 +55,39 @@ async def send_to_telegram(file_path, topic_id, chat_id):
     except Exception as e:
         logging.error(f"Erro ao enviar arquivo: {e}")
 
-async def monitor_transfer(file_path):
+async def monitor_transfer(file_path, timeout=60):
+    """
+    Aguarda até que o arquivo pare de ser modificado e esteja disponível para leitura.
+    
+    :param file_path: Caminho do arquivo a monitorar
+    :param timeout: Tempo máximo de espera em segundos
+    :return: True se o arquivo estiver pronto, False se falhar ou expirar o tempo
+    """
     try:
-        while True:
+        elapsed = 0
+        while elapsed < timeout:
+            if not os.path.exists(file_path):
+                await asyncio.sleep(1)
+                elapsed += 1
+                continue
+
             initial_size = os.path.getsize(file_path)
             await asyncio.sleep(2)
             if initial_size == os.path.getsize(file_path):
                 try:
                     with open(file_path, 'rb') as f:
-                        pass
+                        f.read(1)  # tenta ler um byte
                     return True
                 except OSError:
-                    # Arquivo ainda está sendo usado
+                    # Arquivo ainda pode estar sendo usado
+                    await asyncio.sleep(1)
+                    elapsed += 3
                     continue
-    except FileNotFoundError:
+            else:
+                elapsed += 2
+        return False  # Timeout
+    except Exception as e:
+        print(f"[ERRO monitor_transfer] {e}")
         return False
     
 import subprocess
