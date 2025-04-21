@@ -61,34 +61,38 @@ async def send_to_telegram(file_path, topic_id, chat_id):
     except Exception as e:
         logging.error(f"❌ Erro ao enviar arquivo: {e}")
 
+from asyncinotify import Inotify, Mask
+
 async def monitor_transfer(file_path, timeout=60):
     try:
         relative_path = get_relative_path(file_path)
-        elapsed = 0
-        while elapsed < timeout:
-            if not os.path.exists(file_path):
-                await asyncio.sleep(1)
-                elapsed += 1
-                continue
+        dirname = os.path.dirname(file_path)
+        filename = os.path.basename(file_path)
 
-            initial_size = os.path.getsize(file_path)
-            await asyncio.sleep(4)
-            if initial_size == os.path.getsize(file_path):
-                try:
-                    with open(file_path, 'rb') as f:
-                        f.read(1)
-                    logging.info(f"📥 Transferência concluída para: {relative_path}")
-                    return True
-                except OSError:
-                    await asyncio.sleep(1)
-                    elapsed += 3
-                    continue
-            else:
-                elapsed += 2
-        return False 
-    except Exception as e:
-        logging.error(f"❌ [ERRO monitor_transfer] {e}")
+        logging.info(f"👁️ Aguardando conclusão de transferência via inotify: {relative_path}")
+
+        async with Inotify() as inotify:
+            await inotify.add_watch(dirname, Mask.MODIFY | Mask.CLOSE_WRITE)
+
+            elapsed = 0
+            check_interval = 1  # segundos
+
+            async for event in inotify:
+                if filename in event.name:
+                    if Mask.CLOSE_WRITE in event.mask:
+                        logging.info(f"📥 Transferência concluída: {relative_path}")
+                        return True
+                await asyncio.sleep(check_interval)
+                elapsed += check_interval
+                if elapsed >= timeout:
+                    logging.warning(f"⏱️ Timeout aguardando transferência: {relative_path}")
+                    break
         return False
+
+    except Exception as e:
+        logging.error(f"❌ [ERRO monitor_transfer/inotify] {e}")
+        return False
+
     
 import subprocess
 import logging
