@@ -34,7 +34,7 @@ logging.basicConfig(
 
 async def send_to_telegram(file_path, topic_id, chat_id):
     try:
-        logging.info(f"Preparando para enviar arquivo: {file_path} para o Telegram.")
+        logging.info(f"📤 Preparando para enviar arquivo: {file_path} para o Telegram.")
         creation_time = os.path.getctime(file_path)
         day_of_week = time.strftime("%A", time.localtime(creation_time))
         date = time.strftime("%d/%m/%Y", time.localtime(creation_time))
@@ -51,14 +51,14 @@ async def send_to_telegram(file_path, topic_id, chat_id):
             with open(file_path, 'rb') as vid:
                 await bot.send_video(chat_id, video=vid, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
 
-        logging.info(f"Arquivo enviado com sucesso: {file_path}")
+        logging.info(f"✅ Arquivo enviado com sucesso: {file_path}")
 
     except Exception as e:
-        logging.error(f"Erro ao enviar arquivo: {e}")
+        logging.error(f"❌ Erro ao enviar arquivo: {e}")
 
 async def monitor_transfer(file_path, timeout=60):
     try:
-        logging.info(f"Iniciando monitoramento de transferência para: {file_path}")
+        logging.info(f"⏳ Iniciando monitoramento de transferência para: {file_path}")
         elapsed = 0
         while elapsed < timeout:
             if not os.path.exists(file_path):
@@ -72,7 +72,7 @@ async def monitor_transfer(file_path, timeout=60):
                 try:
                     with open(file_path, 'rb') as f:
                         f.read(1)
-                    logging.info(f"Transferência concluída para: {file_path}")
+                    logging.info(f"✅ Transferência concluída para: {file_path}")
                     return True
                 except OSError:
                     await asyncio.sleep(1)
@@ -82,7 +82,7 @@ async def monitor_transfer(file_path, timeout=60):
                 elapsed += 2
         return False 
     except Exception as e:
-        logging.error(f"[ERRO monitor_transfer] {e}")
+        logging.error(f"❌ [ERRO monitor_transfer] {e}")
         return False
     
 import subprocess
@@ -91,7 +91,7 @@ import os
 
 def convert_video(input_path):
     try:
-        logging.info(f"Iniciando conversão de vídeo: {input_path}")
+        logging.info(f"🎥 Iniciando conversão de vídeo: {input_path}")
         output_path = f"{os.path.splitext(input_path)[0]}.mp4"
         logging.info(f"Convertendo vídeo: {input_path}")
 
@@ -106,32 +106,32 @@ def convert_video(input_path):
         if result.stderr:
             logging.error(f"Erro ao converter vídeo: {result.stderr.decode()}")
 
-        logging.info(f"Vídeo convertido com sucesso: {output_path}")
+        logging.info(f"✅ Vídeo convertido com sucesso: {output_path}")
         return output_path
 
     except subprocess.CalledProcessError as e:
-        logging.error(f"Erro ao converter vídeo: {e.stderr.decode()}")
+        logging.error(f"❌ Erro ao converter vídeo: {e.stderr.decode()}")
         return None
 
     except Exception as e:
-        logging.error(f"Erro inesperado ao converter vídeo: {e}")
+        logging.error(f"❌ Erro inesperado ao converter vídeo: {e}")
         return None
 
 class WatcherHandler(FileSystemEventHandler):
     def __init__(self, loop):
         super().__init__()
         self.loop = loop
-        logging.info("WatcherHandler inicializado.")
+        logging.info("👀 WatcherHandler inicializado.")
 
     def on_created(self, event):
         if not event.is_directory:
             file_path = event.src_path
-            logging.info(f"Novo arquivo detectado: {file_path}")
+            logging.info(f"📂 Novo arquivo detectado: {file_path}")
 
             asyncio.run_coroutine_threadsafe(self.process_file(file_path), self.loop)
 
     async def process_file(self, file_path):
-        logging.info(f"Processando arquivo: {file_path}")
+        logging.info(f"🔄 Processando arquivo: {file_path}")
         if await monitor_transfer(file_path):
             # Extrai o nome da "pasta" após /files/
             try:
@@ -152,9 +152,9 @@ class WatcherHandler(FileSystemEventHandler):
                 converted_path = convert_video(file_path)
                 if converted_path:
                     await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id)
-            logging.info(f"Arquivo processado com sucesso: {file_path}")
+            logging.info(f"✅ Arquivo processado com sucesso: {file_path}")
         else:
-            logging.warning(f"Falha ao processar arquivo: {file_path}")
+            logging.warning(f"⚠️ Falha ao processar arquivo: {file_path}")
 
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
@@ -164,14 +164,14 @@ if __name__ == "__main__":
     observer = Observer()
     observer.schedule(event_handler, path=WATCH_PATH, recursive=True)
 
-    logging.info("Iniciando monitoramento de pasta...")
+    logging.info("🚀 Iniciando monitoramento de pasta...")
     try:
         observer.start()
         loop.run_forever()
     except KeyboardInterrupt:
-        logging.info("Encerrando monitoramento devido a interrupção do teclado.")
+        logging.info("🛑 Encerrando monitoramento devido a interrupção do teclado.")
         observer.stop()
-        logging.info("Finalizando monitoramento.")
+        logging.info("✅ Finalizando monitoramento.")
     finally:
         observer.join()
         loop.close()
