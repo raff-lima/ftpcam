@@ -61,40 +61,44 @@ async def send_to_telegram(file_path, topic_id, chat_id):
     except Exception as e:
         logging.error(f"❌ Erro ao enviar arquivo: {e}")
 
-from asyncinotify import Inotify, Mask
-
 async def monitor_transfer(file_path, timeout=60):
     try:
         relative_path = get_relative_path(file_path)
-        dirname = os.path.dirname(file_path)
-        filename = os.path.basename(file_path)
-
-        logging.info(f"👁️ Aguardando transferência via inotify: {relative_path}")
-
-        inotify = Inotify()
-        inotify.add_watch(dirname, Mask.MODIFY | Mask.CLOSE_WRITE)
-
         elapsed = 0
-        check_interval = 1  # segundos
+        stable_count = 0
+        last_size = 0
 
         while elapsed < timeout:
-            event = await inotify.get_event()
-            if filename in event.name:
-                if Mask.CLOSE_WRITE in event.mask:
-                    logging.info(f"📥 Transferência concluída: {relative_path}")
-                    inotify.close()
-                    return True
-            await asyncio.sleep(check_interval)
-            elapsed += check_interval
+            if not os.path.exists(file_path):
+                await asyncio.sleep(1)
+                elapsed += 1
+                continue
+
+            current_size = os.path.getsize(file_path)
+
+            if current_size == last_size:
+                stable_count += 1
+                if stable_count >= 3:
+                    try:
+                        with open(file_path, 'rb') as f:
+                            f.read(1)
+                        logging.info(f"📥 Transferência concluída para: {relative_path}")
+                        return True
+                    except OSError:
+                        logging.info(f"🔄 Aguardando liberação do arquivo: {relative_path}")
+            else:
+                stable_count = 0
+
+            last_size = current_size
+            await asyncio.sleep(2)
+            elapsed += 2
 
         logging.warning(f"⏱️ Timeout aguardando transferência: {relative_path}")
-        inotify.close()
         return False
 
     except Exception as e:
-        logging.error(f"❌ [ERRO monitor_transfer/inotify] {e}")
+        logging.error(f"❌ [ERRO monitor_transfer] {e}")
         return False
-
     
 import subprocess
 import logging
