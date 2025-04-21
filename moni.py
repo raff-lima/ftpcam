@@ -34,7 +34,6 @@ logging.basicConfig(
 
 async def send_to_telegram(file_path, topic_id, chat_id):
     try:
-        logging.info(f"📤 Enviando arquivo: {file_path} para o Telegram.")
         creation_time = os.path.getctime(file_path)
         day_of_week = time.strftime("%A", time.localtime(creation_time))
         date = time.strftime("%d/%m/%Y", time.localtime(creation_time))
@@ -143,7 +142,6 @@ class WatcherHandler(FileSystemEventHandler):
                 converted_path = convert_video(file_path)
                 if converted_path:
                     await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id)
-            logging.info(f"✅ Arquivo processado: {file_path}")
         else:
             logging.warning(f"⚠️ Falha ao processar arquivo: {file_path}")
 
