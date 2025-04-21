@@ -34,7 +34,7 @@ logging.basicConfig(
 
 async def send_to_telegram(file_path, topic_id, chat_id):
     try:
-        logging.info(f"📤 Preparando para enviar arquivo: {file_path} para o Telegram.")
+        logging.info(f"📤 Enviando arquivo: {file_path} para o Telegram.")
         creation_time = os.path.getctime(file_path)
         day_of_week = time.strftime("%A", time.localtime(creation_time))
         date = time.strftime("%d/%m/%Y", time.localtime(creation_time))
@@ -58,7 +58,6 @@ async def send_to_telegram(file_path, topic_id, chat_id):
 
 async def monitor_transfer(file_path, timeout=60):
     try:
-        logging.info(f"⏳ Iniciando monitoramento de transferência para: {file_path}")
         elapsed = 0
         while elapsed < timeout:
             if not os.path.exists(file_path):
@@ -91,23 +90,17 @@ import os
 
 def convert_video(input_path):
     try:
-        logging.info(f"🎥 Iniciando conversão de vídeo: {input_path}")
-        output_path = f"{os.path.splitext(input_path)[0]}.mp4"
-        logging.info(f"Convertendo vídeo: {input_path}")
+        logging.info(f"🎥 Convertendo vídeo: {input_path}")
 
         result = subprocess.run(
-            ["/usr/bin/mkvmerge", "-o", output_path, input_path],
+            ["/usr/bin/mkvmerge", "-o", f"{os.path.splitext(input_path)[0]}.mp4", input_path],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
 
-        logging.info(f"Saída do comando: {result.stdout.decode()}")
-        if result.stderr:
-            logging.error(f"Erro ao converter vídeo: {result.stderr.decode()}")
-
-        logging.info(f"✅ Vídeo convertido com sucesso: {output_path}")
-        return output_path
+        logging.info(f"✅ Vídeo convertido: {os.path.splitext(input_path)[0]}.mp4")
+        return f"{os.path.splitext(input_path)[0]}.mp4"
 
     except subprocess.CalledProcessError as e:
         logging.error(f"❌ Erro ao converter vídeo: {e.stderr.decode()}")
@@ -121,29 +114,27 @@ class WatcherHandler(FileSystemEventHandler):
     def __init__(self, loop):
         super().__init__()
         self.loop = loop
-        logging.info("👀 WatcherHandler inicializado.")
+        logging.info("👀 Monitoramento inicializado.")
 
     def on_created(self, event):
         if not event.is_directory:
             file_path = event.src_path
-            logging.info(f"📂 Novo arquivo detectado: {file_path}")
+            logging.info(f"📂 Arquivo detectado: {file_path}")
 
             asyncio.run_coroutine_threadsafe(self.process_file(file_path), self.loop)
 
     async def process_file(self, file_path):
-        logging.info(f"🔄 Processando arquivo: {file_path}")
         if await monitor_transfer(file_path):
-            # Extrai o nome da "pasta" após /files/
             try:
                 relative_path = file_path.split("/files/", 1)[1]
-                category = relative_path.split("/")[0]  # pega 'casa' de 'casa/arquivo.jpg'
+                category = relative_path.split("/")[0]
             except IndexError:
-                logging.error("Não foi possível extrair local do caminho")
+                logging.error("❌ Caminho inválido para extração de categoria.")
                 return
 
             group_id = GROUP_ID.get(category)
             if not group_id:
-                logging.warning(f"Local '{category}' não encontrada no GROUP_ID")
+                logging.warning(f"⚠️ Categoria '{category}' não encontrada no GROUP_ID.")
                 return
 
             if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
@@ -152,7 +143,7 @@ class WatcherHandler(FileSystemEventHandler):
                 converted_path = convert_video(file_path)
                 if converted_path:
                     await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id)
-            logging.info(f"✅ Arquivo processado com sucesso: {file_path}")
+            logging.info(f"✅ Arquivo processado: {file_path}")
         else:
             logging.warning(f"⚠️ Falha ao processar arquivo: {file_path}")
 
@@ -164,14 +155,14 @@ if __name__ == "__main__":
     observer = Observer()
     observer.schedule(event_handler, path=WATCH_PATH, recursive=True)
 
-    logging.info("🚀 Iniciando monitoramento de pasta...")
+    logging.info("🚀 Iniciando monitoramento...")
     try:
         observer.start()
         loop.run_forever()
     except KeyboardInterrupt:
-        logging.info("🛑 Encerrando monitoramento devido a interrupção do teclado.")
+        logging.info("🛑 Monitoramento interrompido pelo usuário.")
         observer.stop()
-        logging.info("✅ Finalizando monitoramento.")
+        logging.info("✅ Monitoramento finalizado.")
     finally:
         observer.join()
         loop.close()
