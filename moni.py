@@ -69,24 +69,26 @@ async def monitor_transfer(file_path, timeout=60):
         dirname = os.path.dirname(file_path)
         filename = os.path.basename(file_path)
 
-        logging.info(f"👁️ Aguardando conclusão de transferência via inotify: {relative_path}")
+        logging.info(f"👁️ Aguardando transferência via inotify: {relative_path}")
 
-        async with Inotify() as inotify:
-            await inotify.add_watch(dirname, Mask.MODIFY | Mask.CLOSE_WRITE)
+        inotify = Inotify()
+        inotify.add_watch(dirname, Mask.MODIFY | Mask.CLOSE_WRITE)
 
-            elapsed = 0
-            check_interval = 1  # segundos
+        elapsed = 0
+        check_interval = 1  # segundos
 
-            async for event in inotify:
-                if filename in event.name:
-                    if Mask.CLOSE_WRITE in event.mask:
-                        logging.info(f"📥 Transferência concluída: {relative_path}")
-                        return True
-                await asyncio.sleep(check_interval)
-                elapsed += check_interval
-                if elapsed >= timeout:
-                    logging.warning(f"⏱️ Timeout aguardando transferência: {relative_path}")
-                    break
+        while elapsed < timeout:
+            event = await inotify.get_event()
+            if filename in event.name:
+                if Mask.CLOSE_WRITE in event.mask:
+                    logging.info(f"📥 Transferência concluída: {relative_path}")
+                    inotify.close()
+                    return True
+            await asyncio.sleep(check_interval)
+            elapsed += check_interval
+
+        logging.warning(f"⏱️ Timeout aguardando transferência: {relative_path}")
+        inotify.close()
         return False
 
     except Exception as e:
