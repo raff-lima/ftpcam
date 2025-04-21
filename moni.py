@@ -16,7 +16,7 @@ load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
 group_id_str = os.getenv("GROUP_ID", "{}")
-GROUP_ID = json.loads(group_id_str)..get("dores")
+GROUP_ID = json.loads(group_id_str).get("dores")
 TOPIC_IMAGES = int(os.getenv("TOPIC_IMAGES"))
 TOPIC_VIDEOS = int(os.getenv("TOPIC_VIDEOS"))
 WATCH_PATH = os.getenv("PATH") 
