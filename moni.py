@@ -72,7 +72,7 @@ async def monitor_transfer(file_path, timeout=60):
                 continue
 
             initial_size = os.path.getsize(file_path)
-            await asyncio.sleep(2)
+            await asyncio.sleep(4)
             if initial_size == os.path.getsize(file_path):
                 try:
                     with open(file_path, 'rb') as f:
