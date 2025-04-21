@@ -23,7 +23,14 @@ TOPIC_VIDEOS = int(os.getenv("TOPIC_VIDEOS"))
 WATCH_PATH = os.getenv("PATH") 
 
 bot = Bot(token=TOKEN)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("monitor.log"),  # Salva logs em arquivo
+        logging.StreamHandler()  # Exibe logs no terminal
+    ]
+)
 
 async def send_to_telegram(file_path, topic_id, chat_id):
     try:
@@ -54,10 +61,16 @@ async def monitor_transfer(file_path):
             initial_size = os.path.getsize(file_path)
             await asyncio.sleep(2)
             if initial_size == os.path.getsize(file_path):
-                return True
+                try:
+                    with open(file_path, 'rb') as f:
+                        pass
+                    return True
+                except OSError:
+                    # Arquivo ainda está sendo usado
+                    continue
     except FileNotFoundError:
         return False
-
+    
 import subprocess
 import logging
 import os
