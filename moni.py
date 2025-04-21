@@ -32,8 +32,16 @@ logging.basicConfig(
     ]
 )
 
+def get_relative_path(file_path):
+    try:
+        return file_path.split("/files/", 1)[1]
+    except IndexError:
+        return file_path
+
 async def send_to_telegram(file_path, topic_id, chat_id):
     try:
+        relative_path = get_relative_path(file_path)
+        logging.info(f"📤 Enviando arquivo: {relative_path}")
         creation_time = os.path.getctime(file_path)
         day_of_week = time.strftime("%A", time.localtime(creation_time))
         date = time.strftime("%d/%m/%Y", time.localtime(creation_time))
@@ -57,6 +65,7 @@ async def send_to_telegram(file_path, topic_id, chat_id):
 
 async def monitor_transfer(file_path, timeout=60):
     try:
+        relative_path = get_relative_path(file_path)
         elapsed = 0
         while elapsed < timeout:
             if not os.path.exists(file_path):
@@ -70,7 +79,7 @@ async def monitor_transfer(file_path, timeout=60):
                 try:
                     with open(file_path, 'rb') as f:
                         f.read(1)
-                    logging.info(f"✅ Transferência concluída para: {file_path}")
+                    logging.info(f"📥 Transferência concluída para: {relative_path}")
                     return True
                 except OSError:
                     await asyncio.sleep(1)
@@ -89,7 +98,8 @@ import os
 
 def convert_video(input_path):
     try:
-        logging.info(f"🎥 Convertendo vídeo: {input_path}")
+        relative_path = get_relative_path(input_path)
+        logging.info(f"🎥 Convertendo vídeo: {relative_path}")
 
         result = subprocess.run(
             ["/usr/bin/mkvmerge", "-o", f"{os.path.splitext(input_path)[0]}.mp4", input_path],
@@ -98,7 +108,7 @@ def convert_video(input_path):
             stderr=subprocess.PIPE
         )
 
-        logging.info(f"✅ Vídeo convertido: {os.path.splitext(input_path)[0]}.mp4")
+        logging.info(f"✅ Vídeo convertido: {get_relative_path(os.path.splitext(input_path)[0] + '.mp4')}")
         return f"{os.path.splitext(input_path)[0]}.mp4"
 
     except subprocess.CalledProcessError as e:
@@ -118,11 +128,13 @@ class WatcherHandler(FileSystemEventHandler):
     def on_created(self, event):
         if not event.is_directory:
             file_path = event.src_path
-            logging.info(f"📂 Arquivo detectado: {file_path}")
+            relative_path = get_relative_path(file_path)
+            logging.info(f"📂 Arquivo detectado: {relative_path}")
 
             asyncio.run_coroutine_threadsafe(self.process_file(file_path), self.loop)
 
     async def process_file(self, file_path):
+        relative_path = get_relative_path(file_path)
         if await monitor_transfer(file_path):
             try:
                 relative_path = file_path.split("/files/", 1)[1]
@@ -142,8 +154,9 @@ class WatcherHandler(FileSystemEventHandler):
                 converted_path = convert_video(file_path)
                 if converted_path:
                     await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id)
+            logging.info(f"✅ Arquivo processado: {relative_path}")
         else:
-            logging.warning(f"⚠️ Falha ao processar arquivo: {file_path}")
+            logging.warning(f"⚠️ Falha ao processar arquivo: {relative_path}")
 
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
