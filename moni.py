@@ -66,6 +66,8 @@ async def send_to_telegram(file_path, topic_id, chat_id, bot, category):
 
     except Exception as e:
         logging.error(f"❌ Erro ao enviar arquivo: {e}")
+        
+from PIL import Image
 
 async def monitor_transfer(file_path, timeout=60):
     try:
@@ -73,7 +75,7 @@ async def monitor_transfer(file_path, timeout=60):
         start_time = time.time()
         last_size = -1
         stable_checks = 0
-        check_interval = 0.5  # checagem mais frequente
+        check_interval = 0.5
 
         while time.time() - start_time < timeout:
             if not os.path.exists(file_path):
@@ -87,13 +89,20 @@ async def monitor_transfer(file_path, timeout=60):
                 if stable_checks >= 3:
                     try:
                         with open(file_path, 'rb') as f:
-                            data = f.read(1)
-                            if data:
-                                logging.info(f"📥 Transferência concluída para: {relative_path}")
-                                return True
-                            else:
-                                logging.info(f"⚠️ Arquivo vazio mesmo após estabilidade: {relative_path}")
-                                return False
+                            f.read(1)  # tenta acessar
+                        # Verifica se é imagem válida
+                        if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
+                            try:
+                                with Image.open(file_path) as img:
+                                    img.verify()  # Confirma que não está corrompida
+                            except Exception:
+                                logging.warning(f"⚠️ Imagem ainda incompleta ou corrompida: {relative_path}")
+                                await asyncio.sleep(1)
+                                continue
+
+                        logging.info(f"📥 Transferência concluída para: {relative_path}")
+                        return True
+
                     except OSError:
                         logging.info(f"🔄 Aguardando liberação do arquivo: {relative_path}")
             else:
