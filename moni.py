@@ -44,7 +44,7 @@ def get_relative_path(file_path):
     except IndexError:
         return file_path
 
-async def send_to_telegram(file_path, topic_id, chat_id, bot):
+async def send_to_telegram(file_path, topic_id, chat_id, bot, category):
     try:
         creation_time = os.path.getctime(file_path)
         day_of_week = time.strftime("%A", time.localtime(creation_time))
@@ -55,10 +55,10 @@ async def send_to_telegram(file_path, topic_id, chat_id, bot):
 <blockquote>Data: {date}</blockquote>
 <blockquote>Horário: {hour_min_sec}</blockquote>"""
 
-        if topic_id == TOPIC_IMAGES:
+        if topic_id == TOPIC_IMAGES.get(category):
             with open(file_path, 'rb') as img:
                 await bot.send_photo(chat_id, photo=img, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
-        elif topic_id == TOPIC_VIDEOS:
+        elif topic_id == TOPIC_VIDEOS.get(category):
             with open(file_path, 'rb') as vid:
                 await bot.send_video(chat_id, video=vid, caption=caption, message_thread_id=topic_id, parse_mode="HTML")
 
@@ -163,11 +163,11 @@ class WatcherHandler(FileSystemEventHandler):
                     return
 
                 if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
-                    await send_to_telegram(file_path, TOPIC_IMAGES.get(category), group_id, bot)
+                    await send_to_telegram(file_path, TOPIC_IMAGES.get(category), group_id, bot, category)
                 elif file_path.lower().endswith(".h264"):
                     converted_path = convert_video(file_path)
                     if converted_path:
-                        await send_to_telegram(converted_path, TOPIC_VIDEOS.get(category), group_id, bot)
+                        await send_to_telegram(converted_path, TOPIC_VIDEOS.get(category), group_id, bot, category)
             else:
                 logging.warning(f"⚠️ Falha ao processar arquivo: {relative_path}")
 
