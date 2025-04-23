@@ -70,34 +70,33 @@ async def send_to_telegram(file_path, topic_id, chat_id, bot, category):
 async def monitor_transfer(file_path, timeout=60):
     try:
         relative_path = get_relative_path(file_path)
-        elapsed = 0
-        stable_count = 0
-        last_size = 0
+        start_time = time.time()
+        last_size = -1
+        stable_checks = 0
+        check_interval = 0.5  # Checagens a cada meio segundo
 
-        while elapsed < timeout:
+        while time.time() - start_time < timeout:
             if not os.path.exists(file_path):
-                await asyncio.sleep(1)
-                elapsed += 1
+                await asyncio.sleep(check_interval)
                 continue
 
             current_size = os.path.getsize(file_path)
 
             if current_size == last_size:
-                stable_count += 1
-                if stable_count >= 3:
+                stable_checks += 1
+                if stable_checks >= 3:
                     try:
                         with open(file_path, 'rb') as f:
-                            f.read(1)
+                            f.read(1)  # Força leitura
                         logging.info(f"📥 Transferência concluída para: {relative_path}")
                         return True
                     except OSError:
                         logging.info(f"🔄 Aguardando liberação do arquivo: {relative_path}")
             else:
-                stable_count = 0
+                stable_checks = 0
 
             last_size = current_size
-            await asyncio.sleep(2)
-            elapsed += 2
+            await asyncio.sleep(check_interval)
 
         logging.warning(f"⏱️ Timeout aguardando transferência: {relative_path}")
         return False
