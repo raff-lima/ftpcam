@@ -73,7 +73,7 @@ async def monitor_transfer(file_path, timeout=60):
         start_time = time.time()
         last_size = -1
         stable_checks = 0
-        check_interval = 0.5  # Checagens a cada meio segundo
+        check_interval = 0.5  # checagem mais frequente
 
         while time.time() - start_time < timeout:
             if not os.path.exists(file_path):
@@ -82,14 +82,18 @@ async def monitor_transfer(file_path, timeout=60):
 
             current_size = os.path.getsize(file_path)
 
-            if current_size == last_size:
+            if current_size == last_size and current_size > 0:
                 stable_checks += 1
                 if stable_checks >= 3:
                     try:
                         with open(file_path, 'rb') as f:
-                            f.read(1)  # Força leitura
-                        logging.info(f"📥 Transferência concluída para: {relative_path}")
-                        return True
+                            data = f.read(1)
+                            if data:
+                                logging.info(f"📥 Transferência concluída para: {relative_path}")
+                                return True
+                            else:
+                                logging.info(f"⚠️ Arquivo vazio mesmo após estabilidade: {relative_path}")
+                                return False
                     except OSError:
                         logging.info(f"🔄 Aguardando liberação do arquivo: {relative_path}")
             else:
@@ -104,6 +108,7 @@ async def monitor_transfer(file_path, timeout=60):
     except Exception as e:
         logging.error(f"❌ [ERRO monitor_transfer] {e}")
         return False
+
 
 def convert_video(input_path):
     try:
