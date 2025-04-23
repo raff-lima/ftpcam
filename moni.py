@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 locale.setlocale(locale.LC_TIME, 'pt_BR.utf8')
 load_dotenv()
 
-# TOKEN = os.getenv("TOKEN")
 group_id_str = os.getenv("GROUP_ID", "{}")
 GROUP_ID = json.loads(group_id_str)
 TOPIC_IMAGES = int(os.getenv("TOPIC_IMAGES"))
@@ -34,8 +33,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("monitor.log"),  # Salva logs em arquivo
-        logging.StreamHandler()  # Exibe logs no terminal
+        logging.FileHandler("monitor.log"),
+        logging.StreamHandler()
     ]
 )
 
@@ -106,10 +105,6 @@ async def monitor_transfer(file_path, timeout=60):
     except Exception as e:
         logging.error(f"❌ [ERRO monitor_transfer] {e}")
         return False
-    
-import subprocess
-import logging
-import os
 
 def convert_video(input_path):
     try:
@@ -135,9 +130,10 @@ def convert_video(input_path):
         return None
 
 class WatcherHandler(FileSystemEventHandler):
-    def __init__(self, loop):
+    def __init__(self, loop, semaphore):
         super().__init__()
         self.loop = loop
+        self.semaphore = semaphore
         logging.info("👀 Monitoramento inicializado.")
 
     def on_created(self, event):
@@ -149,36 +145,40 @@ class WatcherHandler(FileSystemEventHandler):
             asyncio.run_coroutine_threadsafe(self.process_file(file_path), self.loop)
 
     async def process_file(self, file_path):
-        relative_path = get_relative_path(file_path)
-        if await monitor_transfer(file_path):
-            try:
-                relative_path = file_path.split("/files/", 1)[1]
-                category = relative_path.split("/")[0]
-            except IndexError:
-                logging.error("❌ Caminho inválido para extração de categoria.")
-                return
+        async with self.semaphore:
+            relative_path = get_relative_path(file_path)
+            if await monitor_transfer(file_path):
+                try:
+                    relative_path = file_path.split("/files/", 1)[1]
+                    category = relative_path.split("/")[0]
+                except IndexError:
+                    logging.error("❌ Caminho inválido para extração de categoria.")
+                    return
 
-            group_id = GROUP_ID.get(category)
-            bot = BOTS.get(category)
+                group_id = GROUP_ID.get(category)
+                bot = BOTS.get(category)
 
-            if not group_id or not bot:
-                logging.warning(f"⚠️ Categoria '{category}' não configurada corretamente.")
-                return
+                if not group_id or not bot:
+                    logging.warning(f"⚠️ Categoria '{category}' não configurada corretamente.")
+                    return
 
-            if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
-                await send_to_telegram(file_path, TOPIC_IMAGES, group_id, bot)
-            elif file_path.lower().endswith(".h264"):
-                converted_path = convert_video(file_path)
-                if converted_path:
-                    await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id, bot)
-        else:
-            logging.warning(f"⚠️ Falha ao processar arquivo: {relative_path}")
+                if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
+                    await send_to_telegram(file_path, TOPIC_IMAGES, group_id, bot)
+                elif file_path.lower().endswith(".h264"):
+                    converted_path = convert_video(file_path)
+                    if converted_path:
+                        await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id, bot)
+            else:
+                logging.warning(f"⚠️ Falha ao processar arquivo: {relative_path}")
 
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    
-    event_handler = WatcherHandler(loop)
+
+    MAX_CONCURRENT_TASKS = 5
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_TASKS)
+
+    event_handler = WatcherHandler(loop, semaphore)
     observer = Observer()
     observer.schedule(event_handler, path=WATCH_PATH, recursive=True)
 
