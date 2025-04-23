@@ -15,14 +15,21 @@ from dotenv import load_dotenv
 locale.setlocale(locale.LC_TIME, 'pt_BR.utf8')
 load_dotenv()
 
-TOKEN = os.getenv("TOKEN")
+# TOKEN = os.getenv("TOKEN")
 group_id_str = os.getenv("GROUP_ID", "{}")
 GROUP_ID = json.loads(group_id_str)
 TOPIC_IMAGES = int(os.getenv("TOPIC_IMAGES"))
 TOPIC_VIDEOS = int(os.getenv("TOPIC_VIDEOS"))
 WATCH_PATH = os.getenv("PATH") 
 
-bot = Bot(token=TOKEN)
+CATEGORY_TOKENS = {
+    "dores": os.getenv("TOKEN_BOT1"),
+    "jonas": os.getenv("TOKEN_BOT2"),
+    "ducarmo": os.getenv("TOKEN_BOT3"),
+}
+
+BOTS = {cat: Bot(token=token) for cat, token in CATEGORY_TOKENS.items() if token}
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -38,7 +45,7 @@ def get_relative_path(file_path):
     except IndexError:
         return file_path
 
-async def send_to_telegram(file_path, topic_id, chat_id):
+async def send_to_telegram(file_path, topic_id, chat_id, bot):
     try:
         creation_time = os.path.getctime(file_path)
         day_of_week = time.strftime("%A", time.localtime(creation_time))
@@ -152,16 +159,18 @@ class WatcherHandler(FileSystemEventHandler):
                 return
 
             group_id = GROUP_ID.get(category)
-            if not group_id:
-                logging.warning(f"⚠️ Categoria '{category}' não encontrada no GROUP_ID.")
+            bot = BOTS.get(category)
+
+            if not group_id or not bot:
+                logging.warning(f"⚠️ Categoria '{category}' não configurada corretamente.")
                 return
 
             if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
-                await send_to_telegram(file_path, TOPIC_IMAGES, group_id)
+                await send_to_telegram(file_path, TOPIC_IMAGES, group_id, bot)
             elif file_path.lower().endswith(".h264"):
                 converted_path = convert_video(file_path)
                 if converted_path:
-                    await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id)
+                    await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id, bot)
         else:
             logging.warning(f"⚠️ Falha ao processar arquivo: {relative_path}")
 
