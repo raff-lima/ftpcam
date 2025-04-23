@@ -17,8 +17,8 @@ load_dotenv()
 
 group_id_str = os.getenv("GROUP_ID", "{}")
 GROUP_ID = json.loads(group_id_str)
-TOPIC_IMAGES = int(os.getenv("TOPIC_IMAGES"))
-TOPIC_VIDEOS = int(os.getenv("TOPIC_VIDEOS"))
+TOPIC_IMAGES = json.loads(os.getenv("TOPIC_IMAGES", "{}"))
+TOPIC_VIDEOS = json.loads(os.getenv("TOPIC_VIDEOS", "{}"))
 WATCH_PATH = os.getenv("PATH") 
 
 CATEGORY_TOKENS = {
@@ -163,11 +163,11 @@ class WatcherHandler(FileSystemEventHandler):
                     return
 
                 if file_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
-                    await send_to_telegram(file_path, TOPIC_IMAGES, group_id, bot)
+                    await send_to_telegram(file_path, TOPIC_IMAGES.get(category), group_id, bot)
                 elif file_path.lower().endswith(".h264"):
                     converted_path = convert_video(file_path)
                     if converted_path:
-                        await send_to_telegram(converted_path, TOPIC_VIDEOS, group_id, bot)
+                        await send_to_telegram(converted_path, TOPIC_VIDEOS.get(category), group_id, bot)
             else:
                 logging.warning(f"⚠️ Falha ao processar arquivo: {relative_path}")
 
