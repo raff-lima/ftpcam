@@ -131,6 +131,14 @@ def convert_video(input_path):
             stderr=subprocess.PIPE
         )
 
+        subprocess.run(
+            ["/usr/bin/ffmpeg", "-i", f"{os.path.splitext(input_path)[0]}.mp4", "-c", "copy", "-movflags", "+faststart", f"{os.path.splitext(input_path)[0]}.mp4"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+
+
         logging.info(f"✅ Vídeo convertido: {get_relative_path(os.path.splitext(input_path)[0] + '.mp4')}")
         return f"{os.path.splitext(input_path)[0]}.mp4"
 
