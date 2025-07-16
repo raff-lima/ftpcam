@@ -124,14 +124,14 @@ def convert_video(input_path):
         relative_path = get_relative_path(input_path)
         logging.info(f"🎥 Convertendo vídeo: {relative_path}")
 
-        result = subprocess.run(
+        await subprocess.run(
             ["/usr/bin/mkvmerge", "-o", f"{os.path.splitext(input_path)[0]}.mp4", input_path],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
 
-        subprocess.run(
+        await subprocess.run(
             ["/usr/bin/ffmpeg", "-i", f"{os.path.splitext(input_path)[0]}.mp4", "-c", "copy", "-movflags", "+faststart", f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"],
             check=True,
             stdout=subprocess.PIPE,
