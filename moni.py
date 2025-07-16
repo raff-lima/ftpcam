@@ -124,15 +124,15 @@ def convert_video(input_path):
         relative_path = get_relative_path(input_path)
         logging.info(f"🎥 Convertendo vídeo: {relative_path}")
 
-        await subprocess.run(
+        result = subprocess.run(
             ["/usr/bin/mkvmerge", "-o", f"{os.path.splitext(input_path)[0]}.mp4", input_path],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
 
-        await subprocess.run(
-            ["/usr/bin/ffmpeg", "-i", f"{os.path.splitext(input_path)[0]}.mp4", "-c", "copy", "-movflags", "+faststart", f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"],
+        subprocess.run(
+            ["/usr/bin/ffmpeg", "-i", f"{os.path.splitext(input_path)[0]}.mp4", "-c", "copy", "-movflags", "+faststart", f"{os.path.splitext(input_path)[0]}.mp4"],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
@@ -140,7 +140,7 @@ def convert_video(input_path):
 
 
         logging.info(f"✅ Vídeo convertido: {get_relative_path(os.path.splitext(input_path)[0] + '.mp4')}")
-        return f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"
+        return f"{os.path.splitext(input_path)[0]}.mp4"
 
     except subprocess.CalledProcessError as e:
         logging.error(f"❌ Erro ao converter vídeo: {e.stderr.decode()}")
