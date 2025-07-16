@@ -161,6 +161,10 @@ class WatcherHandler(FileSystemEventHandler):
         if not event.is_directory:
             file_path = event.src_path
             relative_path = get_relative_path(file_path)
+
+            if "FFMPEG" in file_path.lower():
+                return
+
             logging.info(f"📂 Arquivo detectado: {relative_path}")
 
             asyncio.run_coroutine_threadsafe(self.process_file(file_path), self.loop)
