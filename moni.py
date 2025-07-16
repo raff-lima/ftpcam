@@ -132,7 +132,7 @@ def convert_video(input_path):
         )
 
         subprocess.run(
-            ["/usr/bin/ffmpeg", "-i", f"{os.path.splitext(input_path)[0]}.mp4", "-c", "copy", "-movflags", "+faststart", f"{os.path.splitext(input_path)[0]}.mp4"],
+            ["/usr/bin/ffmpeg", "-i", f"{os.path.splitext(input_path)[0]}.mp4", "-c", "copy", "-movflags", "+faststart", f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
@@ -140,7 +140,7 @@ def convert_video(input_path):
 
 
         logging.info(f"✅ Vídeo convertido: {get_relative_path(os.path.splitext(input_path)[0] + '.mp4')}")
-        return f"{os.path.splitext(input_path)[0]}.mp4"
+        return f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"
 
     except subprocess.CalledProcessError as e:
         logging.error(f"❌ Erro ao converter vídeo: {e.stderr.decode()}")
