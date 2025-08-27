@@ -25,6 +25,7 @@ CATEGORY_TOKENS = {
     "dores": os.getenv("TOKEN_BOT1"),
     "jonas": os.getenv("TOKEN_BOT2"),
     "ducarmo": os.getenv("TOKEN_BOT3"),
+    "ivaldo": os.getenv("TOKEN_BOT4"),
 }
 
 BOTS = {cat: Bot(token=token) for cat, token in CATEGORY_TOKENS.items() if token}
