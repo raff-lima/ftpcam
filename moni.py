@@ -123,38 +123,81 @@ async def monitor_transfer(file_path, timeout=60):
 def convert_video(input_path):
     try:
         relative_path = get_relative_path(input_path)
-        logging.info(f"🎥 Convertendo vídeo: {relative_path}")
+        logging.info(f"🎥 Iniciando conversão: {relative_path}")
 
-        result = subprocess.run(
-            ["/usr/bin/mkvmerge", "-o", f"{os.path.splitext(input_path)[0]}.mp4", input_path],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+        base = os.path.splitext(input_path)[0]
+        intermediate_mp4 = f"{base}.mp4"
+        final_mp4 = f"{base}FFMPEG.mp4"
 
-        subprocess.run(
-            [
+        # 1) Tenta converter direto re-encodando e movendo moov para início
+        cmd1 = [
+            "/usr/bin/ffmpeg",
+            "-y",
+            "-fflags", "+genpts",
+            "-f", "h264",
+            "-i", input_path,
+            "-vf", "scale=1280:-1",
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-crf", "30",
+            "-c:a", "copy",
+            "-movflags", "+faststart",
+            intermediate_mp4
+        ]
+
+        proc = subprocess.run(cmd1, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if proc.returncode != 0:
+            logging.warning(f"⚠️ ffmpeg cmd1 falhou: {proc.stderr.decode(errors='ignore')}")
+            # tenta com fragmented mp4
+            cmd2 = [
                 "/usr/bin/ffmpeg",
-                "-i", f"{os.path.splitext(input_path)[0]}.mp4",
+                "-y",
+                "-fflags", "+genpts",
+                "-f", "h264",
+                "-i", input_path,
                 "-vf", "scale=1280:-1",
                 "-c:v", "libx264",
                 "-preset", "ultrafast",
                 "-crf", "30",
                 "-c:a", "copy",
-                "-movflags", "+faststart",  # 👈 ESSA LINHA É A CHAVE
-                f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"
-            ],
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+                "-movflags", "+faststart+frag_keyframe+empty_moov",
+                final_mp4
+            ]
+            proc2 = subprocess.run(cmd2, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if proc2.returncode != 0:
+                logging.error(f"❌ ffmpeg cmd2 também falhou: {proc2.stderr.decode(errors='ignore')}")
+                return None
+            logging.info(f"✅ Vídeo convertido (fragmented): {get_relative_path(final_mp4)}")
+            return final_mp4
 
-        logging.info(f"✅ Vídeo convertido: {get_relative_path(os.path.splitext(input_path)[0] + '.mp4')}")
-        return f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"
+        # Se cmd1 deu certo, então remova / mova faststart em arquivo final
+        # Aplica fragment flags ao final também para garantir streamability
+        cmd_moveflags = [
+            "/usr/bin/ffmpeg",
+            "-y",
+            "-i", intermediate_mp4,
+            "-c", "copy",
+            "-movflags", "+faststart+frag_keyframe+empty_moov",
+            final_mp4
+        ]
+        proc3 = subprocess.run(cmd_moveflags, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if proc3.returncode != 0:
+            logging.warning(f"⚠️ Falha ao aplicar moveflags: {proc3.stderr.decode(errors='ignore')}")
+            # fallback: retorna intermediate se existir
+            if os.path.exists(intermediate_mp4):
+                logging.info(f"✅ Retornando arquivo intermediário: {get_relative_path(intermediate_mp4)}")
+                return intermediate_mp4
+            return None
 
-    except subprocess.CalledProcessError as e:
-        logging.error(f"❌ Erro ao converter vídeo: {e.stderr.decode()}")
-        return None
+        # limpa intermediário (se desejar)
+        try:
+            if os.path.exists(intermediate_mp4):
+                os.remove(intermediate_mp4)
+        except Exception:
+            pass
+
+        logging.info(f"✅ Vídeo convertido: {get_relative_path(final_mp4)}")
+        return final_mp4
 
     except Exception as e:
         logging.error(f"❌ Erro inesperado ao converter vídeo: {e}")
