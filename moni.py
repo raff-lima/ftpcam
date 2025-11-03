@@ -133,12 +133,21 @@ def convert_video(input_path):
         )
 
         subprocess.run(
-            ["/usr/bin/ffmpeg", "-i", f"{os.path.splitext(input_path)[0]}.mp4", "-vf", "scale=1280:-1", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "30", "-c:a", "copy", f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"],
+            [
+                "/usr/bin/ffmpeg",
+                "-i", f"{os.path.splitext(input_path)[0]}.mp4",
+                "-vf", "scale=1280:-1",
+                "-c:v", "libx264",
+                "-preset", "ultrafast",
+                "-crf", "30",
+                "-c:a", "copy",
+                "-movflags", "+faststart",  # 👈 ESSA LINHA É A CHAVE
+                f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"
+            ],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
-
 
         logging.info(f"✅ Vídeo convertido: {get_relative_path(os.path.splitext(input_path)[0] + '.mp4')}")
         return f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"
