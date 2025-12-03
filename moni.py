@@ -125,32 +125,52 @@ def convert_video(input_path):
         relative_path = get_relative_path(input_path)
         logging.info(f"🎥 Convertendo vídeo: {relative_path}")
 
-        result = subprocess.run(
-            ["/usr/bin/mkvmerge", "-o", f"{os.path.splitext(input_path)[0]}.mp4", input_path],
+        # Etapa 1: mkvmerge converte H.264 para MKV (suporta data partitioning)
+        temp_mkv = f"{os.path.splitext(input_path)[0]}_temp.mkv"
+        subprocess.run(
+            ["/usr/bin/mkvmerge", "-o", temp_mkv, input_path],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
 
+        # Etapa 2: FFmpeg converte MKV para MP4 com otimizações de streaming
+        final_output = f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"
         subprocess.run(
             [
                 "/usr/bin/ffmpeg",
-                "-i", f"{os.path.splitext(input_path)[0]}.mp4",
-                "-vf", "scale=1280:-1",
+                "-i", temp_mkv,
+                "-f", "lavfi",
+                "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
                 "-c:v", "libx264",
-                "-preset", "ultrafast",
-                "-crf", "30",
-                "-c:a", "copy",
-                "-movflags", "+faststart",  # 👈 ESSA LINHA É A CHAVE
-                f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"
+                "-preset", "medium",
+                "-profile:v", "main",
+                "-level", "4.0",
+                "-pix_fmt", "yuv420p",
+                "-crf", "23",
+                "-maxrate", "2500k",
+                "-bufsize", "5000k",
+                "-vf", "scale=1280:-2",
+                "-g", "50",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-shortest",
+                "-movflags", "+faststart+frag_keyframe+empty_moov",
+                "-f", "mp4",
+                "-y",
+                final_output
             ],
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
 
-        logging.info(f"✅ Vídeo convertido: {get_relative_path(os.path.splitext(input_path)[0] + '.mp4')}")
-        return f"{os.path.splitext(input_path)[0]}FFMPEG.mp4"
+        # Remove arquivo temporário
+        if os.path.exists(temp_mkv):
+            os.remove(temp_mkv)
+
+        logging.info(f"✅ Vídeo convertido: {get_relative_path(final_output)}")
+        return final_output
 
     except subprocess.CalledProcessError as e:
         logging.error(f"❌ Erro ao converter vídeo: {e.stderr.decode()}")
